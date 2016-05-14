@@ -1,31 +1,53 @@
-language: android
-
+addons: {}
+after_success:
+- export JAVA_TOOL_OPTIONS=-javaagent:$DFB_PROJECT_DIR/jacoco-agent-jdk8.jar=destfile=$DFB_PROJECT_DIR/jacoco.exec
+- mvn test -Djacoco.skip=true -Dcobertura.skip=true -Dmaven.clover.skip=true test
+- ./df-build.sh
+- env > env.file
+- curl -sL https://raw.githubusercontent.com/travis-ci/artifacts/master/install |
+  bash
+- artifacts upload --key $AWS_ACCESS_KEY_ID --secret $AWS_SECRET_ACCESS_KEY --bucket
+  $DFB_AWS_BUCKET --target-paths $DFB_AWS_BUILD_PATH $(git ls-files -oi -x *.exec)
+- artifacts upload --key $AWS_ACCESS_KEY_ID --secret $AWS_SECRET_ACCESS_KEY --bucket
+  $DFB_AWS_BUCKET --target-paths $DFB_AWS_BUILD_PATH ${DFB_PROJECT_DIR}/env.file
 android:
   components:
-    - build-tools-20.0.0
-    - android-16
-
-jdk:
-  - oraclejdk7
-  - oraclejdk8
-
-after_success:
-  - .buildscript/deploy_snapshot.sh
-
-env:
-  global:
-    - secure: "Yb3rvGm3Q8/gzx+T8YhYkzw1VQQa4HgGs19WOx3iqPyXeeIDB9BIY53Bt11RGtF0Ymmh+OARjtij02M6jZWoJYkD9R80ysJQkItUsSXU7pnojBGBoKDzSH9PVkT8B3rP7al8/1BPZw3w4VGwxV5wqc/SEMcKZQiShoiZ5wjxhtA="
-    - secure: "aFWVcDyY6ARGd5AZ++GPMFFL8WbwOdhMhEWCspHhBg6y5Lse7Q5mgxp7esICLcHa3JTGBk1I7pG0SafzYvwtzzR5cErN2KKphTmbBUFo6uCeJ0tith2auiAsE49/ResDhCDcABUUGQPUv166u8Q/T4XxVdw/2id+e+UeDAx1TX8="
-
+  - build-tools-20.0.0
+  - android-16
+before_install:
+- wget -O beforebuild.sh $DFB_AGENTS_URL/beforebuild.sh
+- chmod a+x beforebuild.sh
+- ./beforebuild.sh
 branches:
   except:
-    - gh-pages
-
-notifications:
-  email: false
-
-sudo: false
-
+  - gh-pages
 cache:
   directories:
-    - $HOME/.m2
+  - $HOME/.m2
+env:
+  global:
+  - secure: Yb3rvGm3Q8/gzx+T8YhYkzw1VQQa4HgGs19WOx3iqPyXeeIDB9BIY53Bt11RGtF0Ymmh+OARjtij02M6jZWoJYkD9R80ysJQkItUsSXU7pnojBGBoKDzSH9PVkT8B3rP7al8/1BPZw3w4VGwxV5wqc/SEMcKZQiShoiZ5wjxhtA=
+  - secure: aFWVcDyY6ARGd5AZ++GPMFFL8WbwOdhMhEWCspHhBg6y5Lse7Q5mgxp7esICLcHa3JTGBk1I7pG0SafzYvwtzzR5cErN2KKphTmbBUFo6uCeJ0tith2auiAsE49/ResDhCDcABUUGQPUv166u8Q/T4XxVdw/2id+e+UeDAx1TX8=
+  - DFB_PROJECT_DIR=$(pwd)
+  - TMP_PROJECT_PARENT_DIR=$(dirname $DFB_PROJECT_DIR)
+  - DFB_BUILD_ID=$TRAVIS_BUILD_ID
+  - DFB_PRODUCT_NAME=$(basename $DFB_PROJECT_DIR)
+  - DFB_OWNER_NAME=$(basename $TMP_PROJECT_PARENT_DIR)
+  - DFB_PRODUCT_KEY=${DFB_OWNER_NAME}_${DFB_PRODUCT_NAME}
+  - DFB_AWS_BUCKET=aline-external-ci-artifacts
+  - DFB_AGENTS_URL=https://s3.amazonaws.com/${DFB_AWS_BUCKET}/agents
+  - DFB_PACKAGING_URL=s3://${DFB_AWS_BUCKET}/artifacts/travis/
+  - DFB_AWS_BUILD_PATH=/artifacts/travis/${DFB_PRODUCT_KEY}/${DFB_BUILD_ID}/output/
+  - AWS_ACCESS_KEY_ID=AKIAIIU2LBOCCKXAIFZQ
+  - AWS_SECRET_ACCESS_KEY=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
+  - DFB_JTO=-javaagent:${DFB_PROJECT_DIR}/dfbuild-agent.jar=PACKAGING_BASE_URI=$DFB_PACKAGING_URL,PRODUCT_KEY=$DFB_PRODUCT_KEY/,BUILD_KEY=$DFB_BUILD_ID/,MODULES_KEY=modules/,START_TIME=0,BUILD_BASE_DIR=$DFB_PROJECT_DIR
+install: 'true'
+jdk:
+- oraclejdk8
+language: android
+notifications: {}
+script:
+- export JAVA_TOOL_OPTIONS=$DFB_JTO
+- mvn -Djacoco.skip=true -Dcobertura.skip=true -Dmaven.clover.skip=true test
+sudo: false
+# Modified by IntegrationTestInstrumentation at 2016-05-14 06:26:29.839199
